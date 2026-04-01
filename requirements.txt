@@ -1,0 +1,6 @@
+opencv-python
+mediapipe
+pyaudio
+numpy
+matplotlib
+pip install torch torchaudio speechbrain

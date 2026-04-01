@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Jetson Voice & Gesture Dashboard</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        
+        /* 上半部：影像與狀態框 */
+        .top-row { display: flex; gap: 10px; margin-bottom: 20px; }
+        .video-container { width: 400px; height: 300px; background: #eee; }
+        .video-container img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .status-box {
+            width: 300px; height: 300px;
+            border: 4px solid #b2d235; /* 截圖中的綠色邊框 */
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 36px; color: #b2d235; font-weight: bold; text-align: center;
+        }
+
+        /* 下半部：控制面板 */
+        .control-panel { max-width: 400px; }
+        .form-group { display: flex; align-items: center; margin-bottom: 8px; }
+        .form-group label { width: 100px; text-align: right; margin-right: 10px; font-size: 14px; color: #333;}
+        .form-group input { flex: 1; padding: 4px; border: 1px solid #ccc; }
+        
+        .btn-group { display: flex; gap: 10px; margin-left: 110px; margin-top: 10px; }
+        .btn { 
+            flex: 1; padding: 6px; border: none; background: #e0e0e0; 
+            cursor: pointer; text-align: center; font-size: 14px;
+        }
+        .btn:hover { background: #d0d0d0; }
+        
+        /* 狀態進度條（對應截圖的 progress）*/
+        .progress-bar { flex: 1; background: #eee; height: 24px; text-align: center; font-size: 14px; line-height: 24px; color: #666;}
+    </style>
+</head>
+<body>
+
+    <div class="top-row">
+        <div class="video-container">
+            <img src="/video_feed" alt="Camera Feed">
+        </div>
+        <div class="status-box" id="result-box">
+            READY!
+        </div>
+        <div class="status-box" style="border-color: #ccc; color: #ccc;">
+            <div style="font-size: 20px;">Score</div>
+            <div id="score-text">0.00</div>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div class="form-group">
+            <label>User Name</label>
+            <input type="text" id="username" placeholder="輸入要註冊的名稱" value="Jerry">
+        </div>
+        
+        <div class="form-group">
+            <label>Status</label>
+            <div class="progress-bar" id="status-text">Idle</div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn" onclick="startRegister()">Register (錄製3秒)</button>
+            <button class="btn" onclick="startVerify()">Verify (錄製3秒)</button>
+        </div>
+    </div>
+
+    <script>
+        const statusText = document.getElementById('status-text');
+        const resultBox = document.getElementById('result-box');
+        const scoreText = document.getElementById('score-text');
+
+        function startRegister() {
+            const name = document.getElementById('username').value;
+            if(!name) { alert("請先輸入 User Name!"); return; }
+
+            statusText.innerText = "🔴 錄音中 (3秒)...";
+            resultBox.innerText = "RECORDING...";
+            resultBox.style.color = "red";
+            
+            fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            })
+            .then(res => res.json())
+            .then(data => {
+                statusText.innerText = data.message;
+                resultBox.innerText = "REGISTERED";
+                resultBox.style.color = "#b2d235";
+            });
+        }
+
+        function startVerify() {
+            statusText.innerText = "🔴 辨識錄音中 (3秒)...";
+            resultBox.innerText = "LISTENING...";
+            resultBox.style.color = "orange";
+            scoreText.innerText = "---";
+
+            fetch('/api/verify', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                statusText.innerText = "辨識完成";
+                scoreText.innerText = data.score.toFixed(2);
+                
+                if (data.name !== "Unknown") {
+                    resultBox.innerText = "Hi, " + data.name + "!";
+                    resultBox.style.color = "#b2d235"; // 綠色
+                } else {
+                    resultBox.innerText = "UNKNOWN";
+                    resultBox.style.color = "red";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
