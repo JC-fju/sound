@@ -78,4 +78,8 @@ class SpeakerRecognizer:
                 best_score = score
                 best_name = name
 
-        # 判斷最高分的相似度是否大於設定的門檻值 (預設 0.
+        # 判斷最高分的相似度是否大於設定的門檻值 (預設 0.75)
+        if best_score >= threshold:
+            return best_name, best_score
+        else:
+            return "Unknown", best_score
