@@ -36,10 +36,25 @@ class SpeakerRecognizer:
         embeddings = self.classifier.encode_batch(signal)
         return embeddings.squeeze().cpu().numpy()
 
-    def register_user(self, name, wav_file):
-        """註冊新聲紋並存入資料庫"""
-        embedding = self.extract_embedding(wav_file)
-        self.db[name] = embedding
+    def register_user(self, name, wav_files):
+        """
+        註冊新聲紋並存入資料庫
+        支援傳入單一檔案(字串)或多個檔案(列表)，若為多個檔案則取特徵平均值
+        """
+        embeddings = []
+        
+        # 確保 wav_files 是一個列表，方便後續迭代
+        if isinstance(wav_files, str): 
+            wav_files = [wav_files]
+        
+        # 依序萃取每次錄音的特徵向量
+        for f in wav_files:
+            emb = self.extract_embedding(f)
+            embeddings.append(emb)
+        
+        # 將多次錄音的特徵值取平均，讓聲紋模型更穩定
+        avg_embedding = np.mean(embeddings, axis=0)
+        self.db[name] = avg_embedding
         self.save_db()
         return True
 
@@ -63,7 +78,4 @@ class SpeakerRecognizer:
                 best_score = score
                 best_name = name
 
-        if best_score >= threshold:
-            return best_name, best_score
-        else:
-            return "Unknown", best_score
+        # 判斷最高分的相似度是否大於設定的門檻值 (預設 0.
