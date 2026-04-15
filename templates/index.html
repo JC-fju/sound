@@ -2,117 +2,97 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Jetson Voice & Gesture Dashboard</title>
+    <title>Jetson Voice Secure</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; }
+        body { background: #000; color: #fff; margin: 0; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .video-box { flex: 1; position: relative; background: #111; display: flex; justify-content: center; }
+        #video-feed { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+        .status-overlay { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); font-size: 28px; font-weight: bold; text-shadow: 0 0 10px rgba(0,0,0,0.8); pointer-events: none; }
         
-        /* 上半部：影像與狀態框 */
-        .top-row { display: flex; gap: 10px; margin-bottom: 20px; }
-        .video-container { width: 400px; height: 300px; background: #eee; }
-        .video-container img { width: 100%; height: 100%; object-fit: cover; }
+        .footer { height: 200px; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; border-top: 1px solid #333; }
+        .input-bar { display: flex; gap: 10px; align-items: center; }
+        input { background: #222; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 5px; width: 120px; text-align: center; }
         
-        .status-box {
-            width: 300px; height: 300px;
-            border: 4px solid #b2d235; /* 截圖中的綠色邊框 */
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            font-size: 36px; color: #b2d235; font-weight: bold; text-align: center;
+        #record-btn {
+            width: 80px; height: 80px; border-radius: 50%; border: none;
+            background: #ff3b30; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px rgba(255, 59, 48, 0.4); transition: 0.3s;
         }
-
-        /* 下半部：控制面板 */
-        .control-panel { max-width: 400px; }
-        .form-group { display: flex; align-items: center; margin-bottom: 8px; }
-        .form-group label { width: 100px; text-align: right; margin-right: 10px; font-size: 14px; color: #333;}
-        .form-group input { flex: 1; padding: 4px; border: 1px solid #ccc; }
+        #record-btn:active { transform: scale(0.9); }
+        #record-btn.recording { animation: pulse 1s infinite; background: #ff0000; }
         
-        .btn-group { display: flex; gap: 10px; margin-left: 110px; margin-top: 10px; }
-        .btn { 
-            flex: 1; padding: 6px; border: none; background: #e0e0e0; 
-            cursor: pointer; text-align: center; font-size: 14px;
-        }
-        .btn:hover { background: #d0d0d0; }
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 20px rgba(255,0,0,0.4); } 50% { transform: scale(1.1); box-shadow: 0 0 40px rgba(255,0,0,0.6); } 100% { transform: scale(1); box-shadow: 0 0 20px rgba(255,0,0,0.4); } }
         
-        /* 狀態進度條（對應截圖的 progress）*/
-        .progress-bar { flex: 1; background: #eee; height: 24px; text-align: center; font-size: 14px; line-height: 24px; color: #666;}
+        .mode-toggle { font-size: 14px; color: #666; cursor: pointer; text-decoration: underline; }
     </style>
 </head>
 <body>
 
-    <div class="top-row">
-        <div class="video-container">
-            <img src="/video_feed" alt="Camera Feed">
-        </div>
-        <div class="status-box" id="result-box">
-            READY!
-        </div>
-        <div class="status-box" style="border-color: #ccc; color: #ccc;">
-            <div style="font-size: 20px;">Score</div>
-            <div id="score-text">0.00</div>
-        </div>
+    <div class="video-box">
+        <div class="status-overlay" id="status-display">READY</div>
+        <img id="video-feed" src="/video_feed">
     </div>
 
-    <div class="control-panel">
-        <div class="form-group">
-            <label>User Name</label>
-            <input type="text" id="username" placeholder="輸入要註冊的名稱" value="Jerry">
+    <div class="footer">
+        <div class="input-bar">
+            <input type="text" id="username" value="Jerry" placeholder="使用者名稱">
+            <span class="mode-toggle" id="mode-text" onclick="toggleMode()">切換至註冊模式</span>
         </div>
         
-        <div class="form-group">
-            <label>Status</label>
-            <div class="progress-bar" id="status-text">Idle</div>
-        </div>
-
-        <div class="btn-group">
-            <button class="btn" onclick="startRegister()">Register (錄製3秒)</button>
-            <button class="btn" onclick="startVerify()">Verify (錄製3秒)</button>
-        </div>
+        <button id="record-btn" onclick="startProcess()">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="white">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+        </button>
+        <div style="font-size: 12px; color: #444;">FJU NV-JETSON SYSTEM</div>
     </div>
 
     <script>
-        const statusText = document.getElementById('status-text');
-        const resultBox = document.getElementById('result-box');
-        const scoreText = document.getElementById('score-text');
+        let isRegister = false;
+        let step = 1;
 
-        function startRegister() {
-            const name = document.getElementById('username').value;
-            if(!name) { alert("請先輸入 User Name!"); return; }
-
-            statusText.innerText = "🔴 錄音中 (3秒)...";
-            resultBox.innerText = "RECORDING...";
-            resultBox.style.color = "red";
-            
-            fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name })
-            })
-            .then(res => res.json())
-            .then(data => {
-                statusText.innerText = data.message;
-                resultBox.innerText = "REGISTERED";
-                resultBox.style.color = "#b2d235";
-            });
+        function toggleMode() {
+            isRegister = !isRegister;
+            document.getElementById('mode-text').innerText = isRegister ? "切換至驗證模式" : "切換至註冊模式";
+            document.getElementById('status-display').innerText = isRegister ? "REGISTRATION MODE" : "READY";
+            document.getElementById('status-display').style.color = isRegister ? "#ff9500" : "#fff";
+            step = 1;
         }
 
-        function startVerify() {
-            statusText.innerText = "🔴 辨識錄音中 (3秒)...";
-            resultBox.innerText = "LISTENING...";
-            resultBox.style.color = "orange";
-            scoreText.innerText = "---";
+        async function startProcess() {
+            const btn = document.getElementById('record-btn');
+            const status = document.getElementById('status-display');
+            const name = document.getElementById('username').value;
+            
+            btn.classList.add('recording');
+            status.innerText = isRegister ? `RECORDING (${step}/3)` : "LISTENING...";
 
-            fetch('/api/verify', { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                statusText.innerText = "辨識完成";
-                scoreText.innerText = data.score.toFixed(2);
-                
-                if (data.name !== "Unknown") {
-                    resultBox.innerText = "Hi, " + data.name + "!";
-                    resultBox.style.color = "#b2d235"; // 綠色
-                } else {
-                    resultBox.innerText = "UNKNOWN";
-                    resultBox.style.color = "red";
-                }
+            const url = isRegister ? '/api/register' : '/api/verify';
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: name, step: step })
             });
+            const data = await res.json();
+            
+            btn.classList.remove('recording');
+
+            if (data.status === "success") {
+                status.innerText = "LOGIN SUCCESS";
+                status.style.color = "#4cd964";
+                setTimeout(() => window.location.href = "/dashboard", 800);
+            } else if (data.status === "next") {
+                step = data.step;
+                status.innerText = `NEXT RECORDING (${step}/3)`;
+            } else if (data.status === "completed") {
+                alert("註冊完成！請切換回驗證模式");
+                toggleMode();
+            } else if (data.status === "failed") {
+                status.innerText = `FAILED (${data.count}/3)`;
+                status.style.color = "#ff3b30";
+            } else if (data.status === "locked") {
+                alert(data.message);
+            }
         }
     </script>
 </body>
